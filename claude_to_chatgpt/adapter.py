@@ -31,26 +31,15 @@ class ClaudeAdapter:
         else:
             return self.claude_api_key
 
-    def convert_messages_to_prompt(self, messages):
-        prompt = ""
-        for message in messages:
-            role = message["role"]
-            content = message["content"]
-            transformed_role = role_map[role]
-            prompt += f"\n\n{transformed_role.capitalize()}: {content}"
-        prompt += "\n\nAssistant: "
-        return prompt
 
     def openai_to_claude_params(self, openai_params):
-        model = model_map.get(openai_params["model"], "claude-2")
+        model = model_map.get(openai_params["model"], "claude-3-opus-20240229")
         messages = openai_params["messages"]
-
-        prompt = self.convert_messages_to_prompt(messages)
 
         claude_params = {
             "model": model,
-            "prompt": prompt,
-            "max_tokens_to_sample": 100000,
+            "messages": messages,
+            "max_tokens": 100000,
         }
 
         if openai_params.get("max_tokens"):
@@ -135,7 +124,7 @@ class ClaudeAdapter:
         async with httpx.AsyncClient(timeout=120.0) as client:
             if not claude_params.get("stream", False):
                 response = await client.post(
-                    f"{self.claude_base_url}/v1/complete",
+                    f"{self.claude_base_url}/v1/messages",
                     headers={
                         "x-api-key": api_key,
                         "accept": "application/json",
@@ -152,7 +141,7 @@ class ClaudeAdapter:
             else:
                 async with client.stream(
                     "POST",
-                    f"{self.claude_base_url}/v1/complete",
+                    f"{self.claude_base_url}/v1/messages",
                     headers={
                         "x-api-key": api_key,
                         "accept": "application/json",

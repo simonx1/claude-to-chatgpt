@@ -102,4 +102,5 @@ model_map = {
     "gpt-3.5-turbo-0613": "claude-instant-1",
     "gpt-4": "claude-2",
     "gpt-4-0613": "claude-2",
+    "gpt-4-turbo-preview": "claude-3-opus-20240229"
 }
