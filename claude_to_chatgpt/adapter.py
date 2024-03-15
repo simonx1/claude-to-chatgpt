@@ -39,7 +39,7 @@ class ClaudeAdapter:
         claude_params = {
             "model": model,
             "messages": messages,
-            "max_tokens": 100000,
+            "max_tokens": 1024,
         }
 
         if openai_params.get("max_tokens"):
@@ -52,7 +52,7 @@ class ClaudeAdapter:
             claude_params["temperature"] = openai_params.get("temperature")
 
         if openai_params.get("stream"):
-            claude_params["stream"] = True
+            claude_params["stream"] = False
 
         return claude_params
 
@@ -85,28 +85,30 @@ class ClaudeAdapter:
 
         return openai_response
 
+# {'id': 'msg_01GPzbZ4QAMKLDuswts8PUoA', 'type': 'message', 'role': 'assistant', 'content': [{'type': 'text', 'text': '2 + 2 = 4\n\nThis is a simple addition problem. When you add two and two together, the result is four.'}], 'model': 'claude-3-opus-20240229', 'stop_reason': 'end_turn', 'stop_sequence': None, 'usage': {'input_tokens': 12, 'output_tokens': 34}}
+#{'id': 'msg_01BoswanJPiD1F1eSBLBR1vs', 'type': 'message', 'role': 'assistant', 'content': [{'type': 'text', 'text': '2+2=4'}], 'model': 'claude-3-opus-20240229', 'stop_reason': 'end_turn', 'stop_sequence': None, 'usage': {'input_tokens': 12, 'output_tokens': 9}}
     def claude_to_chatgpt_response(self, claude_response):
-        completion_tokens = num_tokens_from_string(
-            claude_response.get("completion", "")
-        )
+        input_tokens = claude_response.get("usage", {}).get("input_tokens", 0)
+        output_tokens = claude_response.get("usage", {}).get("output_tokens", 0)
+
         openai_response = {
             "id": f"chatcmpl-{str(time.time())}",
             "object": "chat.completion",
             "created": int(time.time()),
             "model": "gpt-3.5-turbo-0613",
             "usage": {
-                "prompt_tokens": 0,
-                "completion_tokens": completion_tokens,
-                "total_tokens": completion_tokens,
+                "prompt_tokens": input_tokens,
+                "completion_tokens": output_tokens,
+                "total_tokens": input_tokens + output_tokens,
             },
             "choices": [
                 {
                     "message": {
                         "role": "assistant",
-                        "content": claude_response.get("completion", ""),
+                        "content": claude_response.get("content", [])[0].get("text"),
                     },
                     "index": 0,
-                    "finish_reason": stop_reason_map[claude_response.get("stop_reason")]
+                    "finish_reason": "stop"
                     if claude_response.get("stop_reason")
                     else None,
                 }
@@ -123,6 +125,7 @@ class ClaudeAdapter:
 
         async with httpx.AsyncClient(timeout=120.0) as client:
             if not claude_params.get("stream", False):
+                print(claude_params)
                 response = await client.post(
                     f"{self.claude_base_url}/v1/messages",
                     headers={
@@ -136,9 +139,11 @@ class ClaudeAdapter:
                 if response.is_error:
                     raise Exception(f"Error: {response.status_code}")
                 claude_response = response.json()
+                print(claude_response)
                 openai_response = self.claude_to_chatgpt_response(claude_response)
                 yield openai_response
             else:
+                print(claude_params)
                 async with client.stream(
                     "POST",
                     f"{self.claude_base_url}/v1/messages",
@@ -153,6 +158,7 @@ class ClaudeAdapter:
                     if response.is_error:
                         raise Exception(f"Error: {response.status_code}")
                     async for line in response.aiter_lines():
+                        print(line)
                         if line:
                             stripped_line = line.lstrip("data:")
                             if stripped_line:
