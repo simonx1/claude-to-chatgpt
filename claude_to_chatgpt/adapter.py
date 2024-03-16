@@ -1,3 +1,4 @@
+from heapq import merge
 import httpx
 import time
 import json
@@ -33,6 +34,28 @@ class ClaudeAdapter:
             return auth_header.split(" ")[1]
         else:
             return self.claude_api_key
+        
+    def merge_messages(self, messages):
+        new_messages = []
+        prev_role = None
+        prev_content = None
+
+        for message in messages:
+            curr_role = message['role']
+            curr_content = message['content']
+
+            if curr_role == prev_role:
+                prev_content += ' ' + curr_content
+            else:
+                if prev_role is not None:
+                    new_messages.append({'role': prev_role, 'content': prev_content})
+                prev_role = curr_role
+                prev_content = curr_content
+
+        if prev_role is not None:
+            new_messages.append({'role': prev_role, 'content': prev_content})
+
+        return new_messages   
 
 
     def openai_to_claude_params(self, openai_params):
@@ -51,7 +74,7 @@ class ClaudeAdapter:
 
         claude_params = {
             "model": model,
-            "messages": messages,
+            "messages": self.merge_messages(messages),
             "max_tokens": 4096,
         }
 
