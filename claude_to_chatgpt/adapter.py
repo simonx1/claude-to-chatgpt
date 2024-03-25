@@ -6,7 +6,6 @@ import os
 from fastapi import Request
 from claude_to_chatgpt.util import num_tokens_from_string
 from claude_to_chatgpt.logger import logger
-from claude_to_chatgpt.models import model_map
 
 role_map = {
     "system": "Human",
@@ -59,7 +58,7 @@ class ClaudeAdapter:
 
 
     def openai_to_claude_params(self, openai_params):
-        model = model_map.get(openai_params["model"], "claude-3-opus-20240229")
+        model = openai_params["model"]
         messages = openai_params["messages"]
 
         for message in messages:
